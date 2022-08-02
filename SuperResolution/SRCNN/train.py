@@ -52,7 +52,7 @@ def train(config, dataloader: DataLoader, eval_dataloader: DataLoader, device):
 
             if epoch % config["save_par_epoch"] == 0 and step == 0:
                 print(f"Epoch {epoch}, Loss: {loss.item()} ")
-                base_path = f'{config["save_dir_path"]}/{epoch.zfill(6)}'
+                base_path = f'{config["save_dir_path"]}/{str(epoch).zfill(6)}'
                 os.makedirs(base_path, exist_ok=True)
                 torch.save(model.state_dict(), f'{base_path}/model.cpt')
                 torch.save(optimizer.state_dict(), f'{base_path}/optimizer.cpt')
