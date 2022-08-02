@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 
 sys.path.append("../../utils")
 from logger import create_writer
+from data_tools import to_tensor_image
 
 default_config = {
     "epochs": 1000,
@@ -57,9 +58,9 @@ def train(config, dataloader: DataLoader, eval_dataloader: DataLoader, device):
                 with open(f'{config["save_dir_path"]}/{epoch}/config.json', 'w') as f:
                     json.dump(config, f, ensure_ascii=False)
 
-                writer.add_image("train/prediction", prediction[0], epoch)
-                writer.add_image("train/high_resolution", high_resolution[0], epoch)
-                writer.add_image("train/low_resolution", low_resolution[0], epoch)
+                writer.add_image("train/prediction", to_tensor_image(prediction), epoch)
+                writer.add_image("train/high_resolution", to_tensor_image(high_resolution), epoch)
+                writer.add_image("train/low_resolution", to_tensor_image(low_resolution), epoch)
 
                 writer.add_scalar("loss", loss.item(), epoch)
 

@@ -8,15 +8,17 @@ def pil_loader(path):
 
 
 class DatasetFolderPairs(Dataset):
-    def __init__(self, image_dir, data_transforms, common_transform):
+    def __init__(self, image_dir, before_transform, data_transforms, after_transform):
         super().__init__()
         self.filenames = glob.glob(f"{image_dir}/**/*.jpg", recursive=True)
         self.data_transforms = data_transforms
-        self.common_transform = common_transform
+        self.before_transform = before_transform
+        self.after_transform = after_transform
 
     def __getitem__(self, index):
         img = pil_loader(self.filenames[index])
-        return tuple([self.common_transform(data_transform(img)) for data_transform in self.data_transforms])
+        img = self.before_transform(img)
+        return tuple([self.after_transform(data_transform(img)) for data_transform in self.data_transforms])
 
     def __len__(self):
         return len(self.filenames)
