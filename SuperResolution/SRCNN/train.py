@@ -57,9 +57,9 @@ def train(config, dataloader: DataLoader, eval_dataloader: DataLoader, device):
                 with open(f'{config["save_dir_path"]}/{epoch}/config.json', 'w') as f:
                     json.dump(config, f, ensure_ascii=False)
 
-                writer.add_image("train/prediction", prediction, epoch)
-                writer.add_image("train/high_resolution", high_resolution, epoch)
-                writer.add_image("train/low_resolution", low_resolution, epoch)
+                writer.add_image("train/prediction", prediction[0], epoch)
+                writer.add_image("train/high_resolution", high_resolution[0], epoch)
+                writer.add_image("train/low_resolution", low_resolution[0], epoch)
 
                 writer.add_scalar("loss", loss.item(), epoch)
 
