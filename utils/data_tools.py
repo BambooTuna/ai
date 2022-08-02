@@ -27,7 +27,7 @@ def load_resolution_pair_dataset(source_root, pairs=((64, 64), (256, 256)), widt
     ]
     after_transform = transforms.Compose([
         transforms.ToTensor(),  # to [0, 1]
-        transforms.Lambda(lambda t: (t * 2) - 1)  # to [-1, 1]
+        # transforms.Lambda(lambda t: (t * 2) - 1)  # to [-1, 1]
     ])
     return DatasetFolderPairs(source_root, before_transform, data_transforms, after_transform)
 
@@ -48,12 +48,11 @@ def show_image(image):
 
 def to_tensor_image(image):
     reverse = transforms.Compose([
-        transforms.Lambda(lambda t: (t + 1) / 2),
+        # transforms.Lambda(lambda t: (t + 1) / 2),
     ])
     if len(image.shape) == 4:
         image = image[0, :, :, :]
     image = reverse(image)
-    print(image.shape)
     return image
 
 
