@@ -52,10 +52,11 @@ def train(config, dataloader: DataLoader, eval_dataloader: DataLoader, device):
 
             if epoch % config["save_par_epoch"] == 0 and step == 0:
                 print(f"Epoch {epoch}, Loss: {loss.item()} ")
-                os.makedirs(f'{config["save_dir_path"]}/{epoch}', exist_ok=True)
-                torch.save(model.state_dict(), f'{config["save_dir_path"]}/{epoch}/model.cpt')
-                torch.save(optimizer.state_dict(), f'{config["save_dir_path"]}/{epoch}/optimizer.cpt')
-                with open(f'{config["save_dir_path"]}/{epoch}/config.json', 'w') as f:
+                base_path = f'{config["save_dir_path"]}/{epoch.zfill(6)}'
+                os.makedirs(base_path, exist_ok=True)
+                torch.save(model.state_dict(), f'{base_path}/model.cpt')
+                torch.save(optimizer.state_dict(), f'{base_path}/optimizer.cpt')
+                with open(f'{base_path}/config.json', 'w') as f:
                     json.dump(config, f, ensure_ascii=False)
 
                 writer.add_image("train/prediction", to_tensor_image(prediction), epoch)
