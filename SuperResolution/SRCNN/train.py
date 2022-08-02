@@ -17,7 +17,8 @@ from logger import create_writer
 
 default_config = {
     "epochs": 1000,
-    "log_dir_path": "./log",
+    "log_dir_path": "./logs",
+    "log_dir_name": "20220802",
 
     "save_par_epoch": 5,
     "save_dir_path": "./output/20220101",
@@ -31,7 +32,7 @@ default_config = {
 
 
 def train(config, dataloader: DataLoader, eval_dataloader: DataLoader, device):
-    writer = create_writer(config["log_dir_path"])
+    writer = create_writer(config["log_dir_path"], config["log_dir_name"])
     criterion = nn.MSELoss()
     (model, optimizer) = get_networks(config, device)
 
