@@ -23,7 +23,7 @@ def train(config, dataloader: DataLoader, device):
     (model, optimizer) = get_networks(config, device)
     model.train()
 
-    for epoch in tqdm(range(config.epochs), "epochs"):
+    for epoch in tqdm(range(config["epochs"]), "epochs"):
         for step, batch in enumerate(tqdm(dataloader, "steps")):
             (low_resolution, high_resolution) = batch
 
@@ -33,17 +33,17 @@ def train(config, dataloader: DataLoader, device):
             loss.backward()
             optimizer.step()
 
-            if (epoch + 1) % config.save_par_epoch == 0 and step == 0:
+            if (epoch + 1) % config["save_par_epoch"] == 0 and step == 0:
                 print(f"Epoch {epoch}, Loss: {loss.item()} ")
-                os.makedirs(f"{config.save_dir_path}/{epoch}", exist_ok=True)
-                torch.save(model.state_dict(), f"{config.save_dir_path}/{epoch}/model.cpt")
-                torch.save(optimizer.state_dict(), f"{config.save_dir_path}/{epoch}/optimizer.cpt")
+                os.makedirs(f'{config["save_dir_path"]}/{epoch}', exist_ok=True)
+                torch.save(model.state_dict(), f'{config["save_dir_path"]}/{epoch}/model.cpt')
+                torch.save(optimizer.state_dict(), f'{config["save_dir_path"]}/{epoch}/optimizer.cpt')
 
 
 def get_networks(config, device):
     model = SRCNN().to(device)
     optimizer = Adam([{'params': model.conv1.parameters()},
                       {'params': model.conv2.parameters()},
-                      {'params': model.conv3.parameters(), 'lr': config.conv3_lr}],
-                     lr=config.lr)
+                      {'params': model.conv3.parameters(), 'lr': config["conv3_lr"]}],
+                     lr=config["lr"])
     return model, optimizer
