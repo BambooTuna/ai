@@ -1,5 +1,6 @@
 import os
 import json
+import sys
 
 # from tqdm import tqdm
 from tqdm import tqdm_notebook as tqdm
@@ -11,7 +12,8 @@ import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
-from utils.logger import create_writer
+sys.path.append("../../utils")
+from logger import create_writer
 
 default_config = {
     "epochs": 1000,
