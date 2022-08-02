@@ -129,4 +129,9 @@ dmypy.json
 .pyre/
 
 # Custom
+.idea
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+*.iml
+
 .secret
