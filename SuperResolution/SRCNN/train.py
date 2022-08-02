@@ -26,6 +26,8 @@ def train(config, dataloader: DataLoader, device):
     for epoch in tqdm(range(config["epochs"]), "epochs"):
         for step, batch in enumerate(tqdm(dataloader, "steps")):
             (low_resolution, high_resolution) = batch
+            low_resolution = low_resolution.to(device)
+            high_resolution = high_resolution.to(device)
 
             optimizer.zero_grad()
             prediction = model(low_resolution)
