@@ -1,5 +1,6 @@
 import os
-from tqdm import tqdm
+# from tqdm import tqdm
+from tqdm import tqdm_notebook as tqdm
 
 import torch
 from model import SRCNN
