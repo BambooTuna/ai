@@ -25,6 +25,7 @@ default_config = {
     "checkpoint": None,
 
     "eval_par_epoch": 5,
+    "eval_ave_counts": 100,
 
     "lr": 1e-4,
     "conv3_lr": 1e-5,
@@ -91,7 +92,7 @@ def evaluation(config, epoch, writer, dataloader: DataLoader, criterion, model, 
     model.eval()
     val_loss, val_psnr = 0, 0
     with torch.no_grad():
-        for batch in dataloader:
+        for step, batch in enumerate(dataloader):
             (low_resolution, high_resolution) = batch
             low_resolution = low_resolution.to(device)
             high_resolution = high_resolution.to(device)
@@ -100,5 +101,7 @@ def evaluation(config, epoch, writer, dataloader: DataLoader, criterion, model, 
             loss = criterion(prediction, high_resolution)
             val_loss += loss.data
             val_psnr += 10 * log10(1 / loss.data)
+            if step + 1 >= config["eval_ave_counts"]:
+                break
     writer.add_scalar("loss/ave", val_loss / len(dataloader), epoch)
     writer.add_scalar("psnr/ave", val_psnr / len(dataloader), epoch)
