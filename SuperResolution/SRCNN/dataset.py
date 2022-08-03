@@ -15,9 +15,12 @@ def pil_loader(path):
 
 
 class DatasetFolderPairs(Dataset):
-    def __init__(self, source_root, scale=4, width=256, height=256):
+    def __init__(self, source_root, scale=4, width=256, height=256, limit=None):
         super().__init__()
         self.filenames = glob.glob(f"{source_root}/**/*.jpg", recursive=True)
+        if limit is not None:
+            self.filenames = self.filenames[:limit]
+
         self.before_transform = transforms.Compose([
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),  # to [0, 1]
