@@ -29,6 +29,7 @@ default_config = {
 
     "width": 64,
     "height": 64,
+    "batch_size": 64,
     "T": 300,
     "lr": 0.001,
 }
@@ -59,7 +60,7 @@ def train(config, dataloader: DataLoader, eval_dataloader: DataLoader, networks=
 
             optimizer.zero_grad()
 
-            t = torch.randint(0, config["T"], (image.shape[0],), device=device).long()
+            t = torch.randint(0, config["T"], (len(image),), device=device).long()
             loss = get_loss(model, image, t, sqrt_alphas_cumprod, sqrt_one_minus_alphas_cumprod, device)
 
             loss.backward()
