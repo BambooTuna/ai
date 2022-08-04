@@ -29,7 +29,7 @@ default_config = {
 
     "width": 64,
     "height": 64,
-    "batch_size": 64,
+    "batch_size": 128,
     "T": 300,
     "lr": 0.001,
 }
@@ -56,11 +56,10 @@ def train(config, dataloader: DataLoader, eval_dataloader: DataLoader, networks=
         loss, prediction, high_resolution, low_resolution = None, None, None, None
         model.train()
         for step, batch in enumerate(tqdm(dataloader, "steps")):
-            (image) = batch
-
+            image = batch[0]
             optimizer.zero_grad()
 
-            t = torch.randint(0, config["T"], (len(image),), device=device).long()
+            t = torch.randint(0, config["T"], (image.shape[0],), device=device).long()
             loss = get_loss(model, image, t, sqrt_alphas_cumprod, sqrt_one_minus_alphas_cumprod, device)
 
             loss.backward()
@@ -152,4 +151,4 @@ def generate_image(model,
                               posterior_variance)
         if i % stepsize == 0:
             images.append(img.detach().cpu())
-    fakes_random = torchvision.utils.make_grid(torch.cat(images, dim=1), nrow=len(images), padding=0)
+    return torchvision.utils.make_grid(torch.cat(images, dim=0), nrow=len(images), padding=0)
