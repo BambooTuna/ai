@@ -1,3 +1,4 @@
+import argparse
 import os
 import json
 
@@ -7,41 +8,26 @@ from tqdm import tqdm_notebook as tqdm
 
 import torch
 import torch.nn.functional as F
-from torch import log10
+from torchvision import transforms
 from model import SimpleUnet, get_loss, linear_beta_schedule, get_index_from_list
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 
-from dataset import to_tensor_image
-from logger import create_writer
-
-default_config = {
-    "epochs": 1000,
-    "log_dir_path": "./logs",
-    "log_dir_name": "20220802",
-
-    "save_par_epoch": 5,
-    "save_dir_path": "./output/20220101",
-    "checkpoint": None,
-
-    "eval_par_epoch": 5,
-    "eval_ave_counts": 100,
-
-    "width": 64,
-    "height": 64,
-    "batch_size": 128,
-    "T": 300,
-    "lr": 0.001,
-}
+from dataset import to_tensor_image, show_tensor_image
+from logger import create_writer, timestamp
 
 
-def train(config, dataloader: DataLoader, eval_dataloader: DataLoader, networks=None, device="cpu"):
+def main(config):
+    print(config)
+
+
+def train(config, dataloader: DataLoader, networks=None, device="cpu"):
     writer = create_writer(config["log_dir_path"], config["log_dir_name"])
 
     if networks is None:
-        (model, optimizer) = get_networks(config, device)
+        (model, optimizer, scaler, eval_img) = get_networks(config, device)
     else:
-        (model, optimizer) = networks
+        (model, optimizer, scaler, eval_img) = networks
 
     betas = linear_beta_schedule(timesteps=config["T"])
     alphas = 1. - betas
@@ -63,55 +49,53 @@ def train(config, dataloader: DataLoader, eval_dataloader: DataLoader, networks=
             loss = get_loss(model, image, t, sqrt_alphas_cumprod, sqrt_one_minus_alphas_cumprod, device)
 
             loss.backward()
+            # scaler.scale(loss).backward()
             optimizer.step()
+            # scaler.step(optimizer)
+
+            # scaler.update()
+
+        if epoch % config["log_par_epoch"] == 0:
+            print(f"Epoch {epoch}, Loss: {loss.item()} ")
+            writer.add_scalar("loss", loss.item(), epoch)
 
         if epoch % config["save_par_epoch"] == 0:
-            print(f"Epoch {epoch}, Loss: {loss.item()} ")
             base_path = f'{config["save_dir_path"]}/{str(epoch).zfill(6)}'
             os.makedirs(base_path, exist_ok=True)
-            torch.save(model.state_dict(), f'{base_path}/model.cpt')
-            torch.save(optimizer.state_dict(), f'{base_path}/optimizer.cpt')
+            torch.save({
+                "model": model.state_dict(),
+                "optimizer": optimizer.state_dict(),
+                "scaler": scaler.state_dict(),
+                "eval_img": eval_img,
+            }, f'{base_path}.cpt')
             with open(f'{base_path}/config.json', 'w') as f:
                 json.dump(config, f, ensure_ascii=False)
 
+        if epoch % config["eval_par_epoch"] == 0:
             img = generate_image(model,
-                                 config["T"], config["width"], config["height"],
+                                 eval_img,
+                                 config["T"],
                                  betas, sqrt_one_minus_alphas_cumprod, sqrt_recip_alphas, posterior_variance,
                                  device
                                  )
-
-            writer.add_image("train/prediction", to_tensor_image(img), epoch)
-            writer.add_scalar("loss", loss.item(), epoch)
-
-        if epoch % config["eval_par_epoch"] == 0 and eval_dataloader is not None:
-            evaluation(config, epoch, writer, eval_dataloader, model, device)
+            show_tensor_image(img)
+            writer.add_image("eval/prediction", img, epoch)
 
 
 def get_networks(config, device="cpu"):
     checkpoint = config["checkpoint"]
     model = SimpleUnet().to(device)
     optimizer = Adam(model.parameters(), lr=config["lr"])
+    scaler = torch.cuda.amp.GradScaler()
+    eval_img = torch.randn((1, 3, config["width"], config["height"]))
 
     if checkpoint is not None:
-        model.load_state_dict(torch.load(f'{checkpoint}/model.cpt'))
-        optimizer.load_state_dict(torch.load(f'{checkpoint}/optimizer.cpt'))
-    return model, optimizer
-
-
-def evaluation(config, epoch, writer, dataloader: DataLoader, model, device="cpu"):
-    model.eval()
-    val_loss, val_psnr = 0, 0
-    with torch.no_grad():
-        for step, batch in enumerate(dataloader):
-            (image) = batch
-            t = torch.randint(0, config["T"], (image.shape[0],), device=device).long()
-            loss = get_loss(model, image, t, device)
-            val_loss += loss.data
-            val_psnr += 10 * log10(1 / loss.data)
-            if step + 1 >= config["eval_ave_counts"]:
-                break
-    writer.add_scalar("loss/ave", val_loss / len(dataloader), epoch)
-    writer.add_scalar("psnr/ave", val_psnr / len(dataloader), epoch)
+        d = torch.load(checkpoint)
+        model.load_state_dict(d["model"])
+        optimizer.load_state_dict(d["optimizer"])
+        scaler.load_state_dict(d["scaler"])
+        eval_img = d["eval_img"]
+    return model, optimizer, scaler, eval_img.to(device)
 
 
 @torch.no_grad()
@@ -137,10 +121,11 @@ def sample_timestep(model, x, t, betas, sqrt_one_minus_alphas_cumprod, sqrt_reci
 
 @torch.no_grad()
 def generate_image(model,
-                   t_max, width, height,
+                   eval_img,
+                   t_max,
                    betas, sqrt_one_minus_alphas_cumprod, sqrt_recip_alphas, posterior_variance,
                    device):
-    img = torch.randn((1, 3, width, height), device=device)
+    img = eval_img
     num_images = 10
     stepsize = int(t_max / num_images)
 
@@ -151,4 +136,37 @@ def generate_image(model,
                               posterior_variance)
         if i % stepsize == 0:
             images.append(img.detach().cpu())
-    return torchvision.utils.make_grid(torch.cat(images, dim=0), nrow=len(images), padding=0)
+    return torchvision.utils.make_grid(to_tensor_image(torch.cat(images, dim=0)), nrow=len(images), padding=0)
+
+
+if __name__ == '__main__':
+    torch.backends.cudnn.benchmark = True
+    t = timestamp()
+
+    parser = argparse.ArgumentParser(description="train")
+    parser.add_argument('--save_dir', type=str, required=False, default=f"./output/{t}", help='save dir path')
+    parser.add_argument('--save_dir', type=str, required=False, default=f"./output/{t}", help='save dir path')
+    parser.add_argument('--checkpoint', type=str, required=False, default=None, help='checkpoint path')
+    args = parser.parse_args()
+
+    default_config = {
+        "epochs": 1000,
+        "log_dir_path": "./logs",
+        "log_dir_name": t,
+
+        "log_par_epoch": 1,
+
+        "save_par_epoch": 5,
+        "save_dir_path": args.save_dir,
+        "checkpoint": args.checkpoint,
+
+        "eval_par_epoch": 1,
+
+        "width": 64,
+        "height": 64,
+        "batch_size": 128,
+        "T": 300,
+        "lr": 0.001,
+    }
+
+    main(default_config)
