@@ -29,14 +29,30 @@ class ImagePathDataset(torch.utils.data.Dataset):
         return img
 
 
+source_fid_mu = None
+source_fid_sigma = None
+
+
 # http://download.tensorflow.org/models/image/imagenet/inception-2015-12-05.tgz
 # https://nvlabs-fi-cdn.nvidia.com/stylegan2-ada-pytorch/pretrained/metrics/inception-2015-12-05.pt
 def calc_fid50k_full(config, network_url, source_loader: DataLoader, eval_loader: DataLoader, device):
+    global source_fid_mu
+    global source_fid_sigma
+
     if os.path.exists("features.pt") is False:
+        print("checkpoint is not found, start download")
         urllib.request.urlretrieve(network_url, "features.pt")
     model = torch.jit.load("features.pt").eval().to(device)
 
-    source_mu, source_sigma = compute_fid(config, model, source_loader, device)
+    if source_fid_mu is None or source_fid_sigma is None:
+        print(f"start compute source fid, dataloader length is {len(source_loader)}")
+        source_mu, source_sigma = compute_fid(config, model, source_loader, device)
+        source_fid_mu, source_fid_sigma = source_mu, source_sigma
+    else:
+        print(f"use cache source fid")
+        source_mu, source_sigma = source_fid_mu, source_fid_sigma
+
+    print(f"start compute eval fid, dataloader length is {len(eval_loader)}")
     eval_mu, eval_sigma = compute_fid(config, model, eval_loader, device)
 
     m = np.square(eval_mu - source_mu).sum()
