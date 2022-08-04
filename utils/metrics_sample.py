@@ -29,21 +29,21 @@ class ImagePathDataset(torch.utils.data.Dataset):
         return img
 
 
-class GeneratorDataset(torch.utils.data.Dataset):
-    def __init__(self, model, mex_len=5000, transform=None):
-        self.model = model
-        self.mex_len = mex_len
-        self.transforms = transform
-
-    def __len__(self):
-        return self.mex_len
-
-    def __getitem__(self, i):
-        path = self.files[i]
-        img = Image.open(path).convert('RGB')
-        if self.transforms is not None:
-            img = self.transforms(img)
-        return img
+# class GeneratorDataset(torch.utils.data.Dataset):
+#     def __init__(self, model, mex_len=5000, transform=None):
+#         self.model = model
+#         self.mex_len = mex_len
+#         self.transforms = transform
+#
+#     def __len__(self):
+#         return self.mex_len
+#
+#     def __getitem__(self, i):
+#         path = self.files[i]
+#         img = Image.open(path).convert('RGB')
+#         if self.transforms is not None:
+#             img = self.transforms(img)
+#         return img
 
 
 source_fid_mu = None

@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.data import DataLoader
+from torchvision import transforms
 
 import math
 
@@ -130,36 +132,41 @@ class Loss(nn.Module):
         self.sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
         self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1. - alphas_cumprod)
 
-    def forward(self, model, image_0, t):
+    def forward(self, model, image_0, t, device):
         x_noisy, noise = forward_diffusion_sample(
             image_0, t,
             self.sqrt_alphas_cumprod, self.sqrt_one_minus_alphas_cumprod,
-            model.device
+            device
         )
         noise_pred = model(x_noisy, t)
         return F.l1_loss(noise, noise_pred)
 
 
 class Generator(nn.Module):
-    def __init__(self, t_max=300):
+    def __init__(self, model, t_max=300, device="cpu"):
         super().__init__()
+        self.model = model
+        self.t_max = t_max
+        self.device = device
+
         self.betas = linear_beta_schedule(timesteps=t_max)
         alphas = 1. - self.betas
         alphas_cumprod = torch.cumprod(alphas, axis=0)
         alphas_cumprod_prev = F.pad(alphas_cumprod[:-1], (1, 0), value=1.0)
+        self.sqrt_recip_alphas = torch.sqrt(1.0 / alphas)
         self.sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
         self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1. - alphas_cumprod)
         self.posterior_variance = self.betas * (1. - alphas_cumprod_prev) / (1. - alphas_cumprod)
 
-    def forward(self, model, x, t):
-        t = torch.full((1,), t, device=model.device, dtype=torch.long)
+    def forward(self, x, t):
+        t = torch.full((1,), t, device=self.device, dtype=torch.long)
         betas_t = get_index_from_list(self.betas, t, x.shape)
         sqrt_one_minus_alphas_cumprod_t = get_index_from_list(
             self.sqrt_one_minus_alphas_cumprod, t, x.shape
         )
         sqrt_recip_alphas_t = get_index_from_list(self.sqrt_recip_alphas, t, x.shape)
         model_mean = sqrt_recip_alphas_t * (
-                x - betas_t * model(x, t) / sqrt_one_minus_alphas_cumprod_t
+                x - betas_t * self.model(x, t) / sqrt_one_minus_alphas_cumprod_t
         )
         posterior_variance_t = get_index_from_list(self.posterior_variance, t, x.shape)
         if t == 0:
@@ -167,4 +174,3 @@ class Generator(nn.Module):
         else:
             noise = torch.randn_like(x)
             return model_mean + torch.sqrt(posterior_variance_t) * noise
-

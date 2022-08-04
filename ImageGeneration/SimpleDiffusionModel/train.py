@@ -15,13 +15,14 @@ from torch.utils.data import DataLoader
 
 from dataset import to_tensor_image, show_tensor_image
 from logger import create_writer, timestamp
+import metrics
 
 
 def main(config):
     print(config)
 
 
-def train(config, dataloader: DataLoader, networks=None, device="cpu"):
+def train(config, dataloader: DataLoader, eval_dataloader: DataLoader, networks=None, device="cpu"):
     writer = create_writer(config["log_dir_path"], config["log_dir_name"])
 
     if networks is None:
@@ -38,7 +39,7 @@ def train(config, dataloader: DataLoader, networks=None, device="cpu"):
             optimizer.zero_grad()
 
             t = torch.randint(0, config["T"], (image.shape[0],), device=device).long()
-            loss = criterion(model, image, t)
+            loss = criterion(model, image, t, device)
 
             loss.backward()
             # scaler.scale(loss).backward()
@@ -50,6 +51,13 @@ def train(config, dataloader: DataLoader, networks=None, device="cpu"):
         if epoch % config["log_par_epoch"] == 0:
             print(f"Epoch {epoch}, Loss: {loss.item()} ")
             writer.add_scalar("loss", loss.item(), epoch)
+            img = generate_image(model,
+                                 eval_img,
+                                 config["T"],
+                                 device
+                                 )
+            show_tensor_image(img)
+            writer.add_image("eval/prediction", img, epoch)
 
         if epoch % config["save_par_epoch"] == 0:
             base_path = f'{config["save_dir_path"]}/{str(epoch).zfill(6)}'
@@ -64,12 +72,12 @@ def train(config, dataloader: DataLoader, networks=None, device="cpu"):
                 json.dump(config, f, ensure_ascii=False)
 
         if epoch % config["eval_par_epoch"] == 0:
-            img = generate_image(model,
-                                 eval_img,
-                                 config["T"]
-                                 )
-            show_tensor_image(img)
-            writer.add_image("eval/prediction", img, epoch)
+            generator = Generator(model, config["T"], device).to(device)
+            fid = metrics.calc_fid50k_full(config=config,
+                                           source_loader=eval_dataloader, generator=generator,
+                                           device=device)
+            print(f'Epoch {epoch}, Fid: {fid}')
+            writer.add_scalar("loss/fid", fid, epoch)
 
 
 def get_networks(config, device="cpu"):
@@ -91,15 +99,16 @@ def get_networks(config, device="cpu"):
 @torch.no_grad()
 def generate_image(model,
                    eval_img,
-                   t_max):
+                   t_max,
+                   device):
     img = eval_img
     num_images = 10
     stepsize = int(t_max / num_images)
 
-    g = Generator(t_max)
+    g = Generator(model, t_max, device).to(device)
     images = []
     for t in range(0, t_max)[::-1]:
-        img = g(model, img, t)
+        img = g(img, t)
         if t % stepsize == 0:
             images.append(img.detach().cpu())
     return torchvision.utils.make_grid(to_tensor_image(torch.cat(images, dim=0)), nrow=len(images), padding=0)
@@ -127,6 +136,8 @@ if __name__ == '__main__':
         "checkpoint": args.checkpoint,
 
         "eval_par_epoch": 1,
+        "eval_gen_batch": 4,
+        "eval_gen_max": 5000,
 
         "width": 64,
         "height": 64,
