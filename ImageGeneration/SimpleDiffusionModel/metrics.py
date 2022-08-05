@@ -123,12 +123,9 @@ def compute_generated_fid(config, model, generator, device):
         img = torch.randn((gen_batch_size, 3, config["width"], config["height"])).to(device)
         for t in range(0, config["T"])[::-1]:
             img = generator(img, t).detach()
-        print("img.shape", img.shape)
         images.append(img)
     images = torch.cat(images, dim=0)
-    print("images.shape", images.shape)
     feature = model(images).cpu().numpy()
-    print("feature.shape", feature.shape)
     length += feature.shape[0]
     x64 = feature.astype(np.float64)
 
